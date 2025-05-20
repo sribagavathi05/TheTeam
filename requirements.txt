@@ -6,4 +6,4 @@ scikit-learn
 scipy
 pandas
 streamlit
-# tensorflow==2.15.0  # Only if you actually need TF, and only on Python ≤3.11
+tensorflow==2.15.0  # Only if you actually need TF, and only on Python ≤3.11
