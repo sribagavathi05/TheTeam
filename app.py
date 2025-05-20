@@ -1,24 +1,44 @@
 import streamlit as st
 import numpy as np
 import joblib
-import tensorflow as tf
+import torch
 
 # Load models
 xgb_model = joblib.load("xgb.pkl")
 scaler = joblib.load("scaler.pkl")
-autoencoder = tf.keras.models.load_model("autoencoder.h5")
 
-# Define your threshold
+# PyTorch autoencoder loading
+class Autoencoder(torch.nn.Module):
+    def __init__(self):
+        super(Autoencoder, self).__init__()
+        # Define layers matching your trained model
+        self.encoder = torch.nn.Sequential(
+            torch.nn.Linear(30, 16),
+            torch.nn.ReLU(),
+            torch.nn.Linear(16, 8),
+            torch.nn.ReLU(),
+        )
+        self.decoder = torch.nn.Sequential(
+            torch.nn.Linear(8, 16),
+            torch.nn.ReLU(),
+            torch.nn.Linear(16, 30),
+        )
+    def forward(self, x):
+        x = self.encoder(x)
+        x = self.decoder(x)
+        return x
+
+autoencoder = Autoencoder()
+autoencoder.load_state_dict(torch.load("autoencoder.pt", map_location=torch.device('cpu')))
+autoencoder.eval()
+
 THRESHOLD = 0.01  # Update this based on your training
-
-# Define the number of features (adjust as needed)
 n_features = 30
 
 st.set_page_config(page_title="Fraud Detection with XGBoost & Autoencoder")
 st.title("Fraud Detection App")
 st.markdown("Enter transaction details below to predict fraud using both XGBoost and Autoencoder models.")
 
-# Input form
 with st.form("fraud_form"):
     features = []
     for i in range(n_features):
@@ -35,8 +55,10 @@ if submitted:
         # XGBoost prediction
         xgb_pred = xgb_model.predict(scaled_input)[0]
 
-        # Autoencoder anomaly score
-        reconstruction = autoencoder.predict(scaled_input)
+        # Autoencoder anomaly score using PyTorch
+        input_tensor = torch.from_numpy(scaled_input).float()
+        with torch.no_grad():
+            reconstruction = autoencoder(input_tensor).numpy()
         mse = np.mean(np.power(scaled_input - reconstruction, 2))
         anomaly = mse > THRESHOLD
 
